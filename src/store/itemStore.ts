@@ -26,4 +26,11 @@ export const itemStore = {
     Object.assign(item, changes, { updatedAt: new Date().toISOString() });
     return item;
   },
+
+  delete(id: number): boolean {
+    const index = items.findIndex((item) => item.id === id);
+    if (index === -1) return false;
+    items.splice(index, 1);
+    return true;
+  },
 };

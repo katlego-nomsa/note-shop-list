@@ -1,7 +1,7 @@
 import http from "http";
 import { validateCreate, validateUpdate } from "./models/item";
 import { itemStore } from "./store/itemStore";
-import { sendJson } from "./utils/response";
+import { sendJson, sendNoContent } from "./utils/response";
 import { parseJsonBody } from "./utils/body";
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -60,6 +60,12 @@ const server = http.createServer(async (req, res) => {
       const { errors, value } = validateUpdate(body);
       if (errors.length > 0 || !value) return sendError(res, 400, "Validation failed", errors);
       return sendJson(res, 200, { success: true, data: itemStore.update(id, value) });
+    }
+
+    // DELETE /items/:id
+    if (req.method === "DELETE") {
+      if (!itemStore.delete(id)) return sendError(res, 404, `Item with id ${id} not found`);
+      return sendNoContent(res);
     }
   }
 

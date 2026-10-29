@@ -4,3 +4,8 @@ export function sendJson(res: ServerResponse, status: number, body: unknown): vo
   res.writeHead(status, { "Content-Type": "application/json" });
   res.end(JSON.stringify(body));
 }
+
+export function sendNoContent(res: ServerResponse): void {
+  res.writeHead(204);
+  res.end();
+}

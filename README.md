@@ -1,51 +1,120 @@
-Topic: React TS
-Submission Date: 23 September 2026
-Time: 09:00 am
+# Shopping List API
 
-Please submit by pushing to your github repository and creating a pull request to your mentor
+A REST API for managing a shopping list, built with Node.js, TypeScript and the built-in `http` module (no frameworks). Items are stored in memory, so the list resets when the server restarts.
 
-Title: ReactTS UI Challenge
+## Features
+- Add, view, update and delete shopping list items
+- Mark items as purchased and change quantities
+- Input validation with clear error messages
+- Consistent JSON responses for every endpoint
 
-Objective
-The objective of this task is to assess your understanding of ReactTS concepts and your ability to design and implement user interfaces (UI) using ReactTS components. In this challenge, you will be creating your own UI component from scratch, demonstrating your knowledge of React best practices, component structure, and reusability.
+## Project Structure
+```
+src/
+├── server.ts            # HTTP server and routing
+├── models/item.ts       # Item type and validation
+├── store/itemStore.ts   # In-memory data store
+└── utils/
+    ├── errors.ts        # Error classes and reusable error handler
+    ├── response.ts      # JSON response helpers
+    └── body.ts          # JSON request body parser
+```
 
-This is the official first task of the curriculum, based on React Lesson 2, focusing mainly on design implementation, styling and screen responsiveness.
+## Getting Started
+Requires Node.js 18 or newer.
 
-Choose one of the designs in the folder and implement the UI exactly as it is.
+```bash
+npm install
+npm run dev
+```
 
-Instructions:
-Create a vite ReactTS project in the directory
-Choose one of the files (design), delete the rest. (your repo should the design you have chosen).
-Using ReactTS, create a front-end implementation of the UI design.
-Pay close attention to the layout, colours, typography, and overall visual elements to ensure accurate replication.
-You may use your own icons, images, and typography that closely resemble those used in the UI design.
-Use appropriate ReactTS components and styling techniques to achieve the desired design.
-Implement interactivity and responsiveness (from mobile to desktop) where applicable.
-Test your implementation thoroughly to ensure proper functionality.
-Make sure all reappearing code is set up as reusable components to ensure readability and maintainability
-Host your work using Github pages , firebase or any hosting site of your choice.
+The server runs on `http://localhost:3000` (set the `PORT` environment variable to change it).
 
-Notes: 
-While replicating the design, focus on visual fidelity and user experience.
-Use your creativity to find icons, images, typography and colors (color codes) that closely resemble those used in the UI design.
-Apply your knowledge of ReactTS and front-end development best practices to accomplish the task.
-Make use of reusable components wherever possible.
-Feel free to use any additional libraries or tools that you are comfortable with.
-Be attentive to details and strive for accuracy in your implementation.
-Remember, the purpose of this task is to assess your ability to translate a design into a functional UI using ReactTS. If you have any questions or need clarification, please don't hesitate to reach out.
-Stick to plain CSS for styling
+To build and run the compiled version:
 
-Evaluation Criteria:
-Accuracy of the design
-Was the design layout properly imitated
-Were the same colors maintained
-Were similar fonts to those in the design used
-Were all elements  imitated, is there an element on the design that’s missing on the implementation
-Page interactivity
-Do links change color when hovered over
-Do buttons change color when hovered over
-Utilisation of ReactTS features
-Did developer create own components
-Were developer-created components re-used for similar UI elements
-Responsiveness of the page
-Is the page responsive to different web view sizes
+```bash
+npm run build
+npm start
+```
+
+## Item Model
+| Field       | Type    | Notes                                  |
+|-------------|---------|----------------------------------------|
+| `id`        | number  | Auto-generated                         |
+| `name`      | string  | Required, cannot be empty              |
+| `quantity`  | number  | Positive number, defaults to `1`       |
+| `unit`      | string  | Optional, e.g. `"L"`, `"kg"`           |
+| `purchased` | boolean | Defaults to `false`                    |
+| `createdAt` | string  | ISO timestamp, set automatically       |
+| `updatedAt` | string  | ISO timestamp, updated on every change |
+
+## Response Format
+Success:
+```json
+{ "success": true, "data": { } }
+```
+
+Error:
+```json
+{ "success": false, "error": { "message": "Validation failed", "details": ["name is required"] } }
+```
+
+`details` only appears for validation errors. A successful `DELETE` returns `204 No Content` with an empty body.
+
+## Endpoints
+
+### POST /items
+Add an item.
+
+Request body:
+```json
+{ "name": "Milk", "quantity": 2, "unit": "L" }
+```
+- `201 Created`: returns the new item
+- `400 Bad Request`: missing or invalid fields, or invalid JSON
+
+### GET /items
+Get all items.
+- `200 OK`: returns an array of items (empty if there are none)
+
+### GET /items/:id
+Get a single item.
+- `200 OK`: returns the item
+- `400 Bad Request`: id is not a positive whole number
+- `404 Not Found`: item does not exist
+
+### PUT /items/:id
+Update an item. Send any of `name`, `quantity`, `unit`, `purchased` (at least one).
+
+Request body:
+```json
+{ "purchased": true, "quantity": 3 }
+```
+- `200 OK`: returns the updated item
+- `400 Bad Request`: invalid fields, empty body or invalid id
+- `404 Not Found`: item does not exist
+
+### DELETE /items/:id
+Delete an item.
+- `204 No Content`: item deleted
+- `404 Not Found`: item does not exist
+
+### Other errors
+- `404`: unknown route
+- `405`: method not supported on that route
+- `500`: unexpected server error
+
+## Testing with Postman
+1. Start the server and use the base URL `http://localhost:3000`.
+2. For `POST` and `PUT`, open **Body**, choose **raw** and set the type to **JSON**.
+3. Suggested test flow:
+   1. `POST /items` with `{"name":"Milk","quantity":2,"unit":"L"}` returns 201
+   2. `POST /items` with `{"name":"Eggs"}` returns 201
+   3. `POST /items` with `{}` returns 400
+   4. `GET /items` returns both items
+   5. `GET /items/1` returns Milk
+   6. `GET /items/99` returns 404
+   7. `PUT /items/1` with `{"purchased":true,"quantity":3}` returns 200
+   8. `PUT /items/1` with `{"quantity":-5}` returns 400
+   9. `DELETE /items/2` returns 204
+   10. `DELETE /items/2` again returns 404

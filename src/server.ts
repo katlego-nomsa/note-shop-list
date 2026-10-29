@@ -1,75 +1,72 @@
 import http from "http";
 import { validateCreate, validateUpdate } from "./models/item";
 import { itemStore } from "./store/itemStore";
-import { sendJson, sendNoContent } from "./utils/response";
+import { sendSuccess, sendNoContent } from "./utils/response";
 import { parseJsonBody } from "./utils/body";
+import {
+  BadRequestError,
+  MethodNotAllowedError,
+  NotFoundError,
+  handleError,
+} from "./utils/errors";
 
 const PORT = Number(process.env.PORT) || 3000;
 
-function sendError(res: http.ServerResponse, status: number, message: string, details?: string[]) {
-  sendJson(res, status, { success: false, error: { message, ...(details && { details }) } });
-}
-
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
-  const segments = url.pathname.split("/").filter(Boolean); // "/items/3" becomes ["items", "3"]
+  // Every error thrown below ends up in the catch at the bottom
+  try {
+    const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+    const segments = url.pathname.split("/").filter(Boolean); // "/items/3" becomes ["items", "3"]
 
-  // ---- /items ----
-  if (segments[0] === "items" && segments.length === 1) {
-    if (req.method === "GET") {
-      return sendJson(res, 200, { success: true, data: itemStore.getAll() });
-    }
-
-    if (req.method === "POST") {
-      let body;
-      try {
-        body = await parseJsonBody(req);
-      } catch (err) {
-        return sendError(res, 400, (err as Error).message);
+    // ---- /items ----
+    if (segments[0] === "items" && segments.length === 1) {
+      if (req.method === "GET") {
+        return sendSuccess(res, 200, itemStore.getAll());
       }
-      const { errors, value } = validateCreate(body);
-      if (errors.length > 0 || !value) return sendError(res, 400, "Validation failed", errors);
-      return sendJson(res, 201, { success: true, data: itemStore.create(value) });
-    }
-  }
 
-  // ---- /items/:id ----
-  if (segments[0] === "items" && segments.length === 2) {
-    const id = Number(segments[1]);
-    if (!Number.isInteger(id) || id <= 0) {
-      return sendError(res, 400, "Item id must be a positive whole number");
-    }
-
-    // GET /items/:id
-    if (req.method === "GET") {
-      const item = itemStore.getById(id);
-      if (!item) return sendError(res, 404, `Item with id ${id} not found`);
-      return sendJson(res, 200, { success: true, data: item });
-    }
-
-    // PUT /items/:id
-    if (req.method === "PUT") {
-      if (!itemStore.getById(id)) return sendError(res, 404, `Item with id ${id} not found`);
-
-      let body;
-      try {
-        body = await parseJsonBody(req);
-      } catch (err) {
-        return sendError(res, 400, (err as Error).message);
+      if (req.method === "POST") {
+        const body = await parseJsonBody(req);
+        const { errors, value } = validateCreate(body);
+        if (errors.length > 0 || !value) throw new BadRequestError("Validation failed", errors);
+        return sendSuccess(res, 201, itemStore.create(value));
       }
-      const { errors, value } = validateUpdate(body);
-      if (errors.length > 0 || !value) return sendError(res, 400, "Validation failed", errors);
-      return sendJson(res, 200, { success: true, data: itemStore.update(id, value) });
+
+      throw new MethodNotAllowedError();
     }
 
-    // DELETE /items/:id
-    if (req.method === "DELETE") {
-      if (!itemStore.delete(id)) return sendError(res, 404, `Item with id ${id} not found`);
-      return sendNoContent(res);
+    // ---- /items/:id ----
+    if (segments[0] === "items" && segments.length === 2) {
+      const id = Number(segments[1]);
+      if (!Number.isInteger(id) || id <= 0) {
+        throw new BadRequestError("Item id must be a positive whole number");
+      }
+
+      if (req.method === "GET") {
+        const item = itemStore.getById(id);
+        if (!item) throw new NotFoundError(`Item with id ${id} not found`);
+        return sendSuccess(res, 200, item);
+      }
+
+      if (req.method === "PUT") {
+        if (!itemStore.getById(id)) throw new NotFoundError(`Item with id ${id} not found`);
+        const body = await parseJsonBody(req);
+        const { errors, value } = validateUpdate(body);
+        if (errors.length > 0 || !value) throw new BadRequestError("Validation failed", errors);
+        return sendSuccess(res, 200, itemStore.update(id, value));
+      }
+
+      if (req.method === "DELETE") {
+        if (!itemStore.delete(id)) throw new NotFoundError(`Item with id ${id} not found`);
+        return sendNoContent(res);
+      }
+
+      throw new MethodNotAllowedError();
     }
+
+    throw new NotFoundError("Route not found");
+  } catch (err) {
+    handleError(res, err);
   }
-
-  sendError(res, 404, "Route not found");
 });
 
 server.listen(PORT, () => {
